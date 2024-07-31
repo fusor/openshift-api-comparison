@@ -57,6 +57,7 @@ ok: [localhost] => {
 }
 ```
 
+## Additional considerations
 Note that some of these resources are intentionally excluded by MTC during migrations. For instance in the example these can be found in the default excluded resources list. https://github.com/migtools/mig-operator/blob/master/roles/migrationcontroller/defaults/main.yml
 ```
         "servicebindings.servicecatalog.k8s.io/v1beta1",
