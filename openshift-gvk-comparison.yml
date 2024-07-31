@@ -1,0 +1,101 @@
+- hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Fail if SRC_KUBECONFIG or DST_KUBECONFIG is not set
+      ansible.builtin.fail:
+        msg: "Please export SRC_KUBECONFIG and DST_KUBECONFIG for your clusters"
+      when: >
+        lookup('ansible.builtin.env', 'SRC_KUBECONFIG') == "" or
+        lookup('ansible.builtin.env', 'DST_KUBECONFIG') == ""
+
+    - name: Retrieve SRC GVKs
+      kubernetes.core.k8s_cluster_info:
+        kubeconfig: "{{ lookup('ansible.builtin.env', 'SRC_KUBECONFIG') }}"
+        validate_certs: false
+      register: src_api_status
+
+    - name: Load SRC GVKs
+      ansible.builtin.set_fact:
+        src_gvks: "{{ src_gvks | default([]) + [ _task.task.kind.name | string + '.' + _task.task.api_version | string] }}"
+      loop: >-
+        {{
+          src_api_status.apis.keys()
+          | zip(src_api_status.apis.values() | map('dict2items'))
+          | subelements([1])
+        }}
+      loop_control:
+        label: "{{ item.0.0 }} — {{ item.1.key }}"
+      vars:
+        _task:
+          task:
+            kind: "{{ item.1.value }}"
+            group: "{{ item.1.key }}"
+            api_version: "{{ item.0.0 }}"
+
+    - name: Retrieve DST GVKs
+      kubernetes.core.k8s_cluster_info:
+        kubeconfig: "{{ lookup('ansible.builtin.env', 'DST_KUBECONFIG') }}"
+        validate_certs: false
+      register: dst_api_status
+
+    - name: Load DST GVKs
+      ansible.builtin.set_fact:
+        dst_gvks: "{{ dst_gvks | default([]) + [ _task.task.kind.name | string + '.' + _task.task.api_version | string] }}"
+      loop: >-
+        {{
+          dst_api_status.apis.keys()
+          | zip(dst_api_status.apis.values() | map('dict2items'))
+          | subelements([1])
+        }}
+      loop_control:
+        label: "{{ item.0.0 }} — {{ item.1.key }}"
+      vars:
+        _task:
+          task:
+            kind: "{{ item.1.value }}"
+            group: "{{ item.1.key }}"
+            api_version: "{{ item.0.0 }}"
+
+    - name: Locate GVKs absent on DST
+      ansible.builtin.set_fact:
+        unhandled_gvks: "{{ unhandled_gvks | default([]) + [item] }}"
+      with_items: "{{ src_gvks }}"
+      when:
+        - item not in dst_gvks
+        - item != "deployments.extensions/v1beta1" # Cohabitating resource
+        - item != "daemonsets.extensions/v1beta1" # Cohabitating resource
+        - item != "replicasets.extensions/v1beta1" # Cohabitating resource
+        - item != "networkpolicies.extensions/v1beta1" # Cohabitating resource
+        - item != "events.events.k8s.io/v1beta1" # Cohabitating resource
+        - item != "deployments.apps/v1beta2" # Velero will use deployments.apps/v1
+        - item != "daemonsets.apps/v1beta2" # Velero will use daemonsets.apps/v1
+        - item != "apiservices.apiregistration.k8s.io/v1beta1" # Velero will use apiservices.apiregistration.k8s.io/v1
+        - item != "controllerrevisions.apps/v1beta2" # Velero will use controllerrevisions.apps/v1
+        - item != "controllerrevisions.apps/v1beta1" # Velero will use controllerrevisions.apps/v1
+        - item != "replicasets.apps/v1beta2" # Velero will use replicasets.apps/v1
+        - item != "statefulsets.apps/v1beta2" # Velero will use statefulsets.apps/v1
+        - item != "statefulsets.apps/v1beta1" # Velero will use statefulsets.apps/v1
+        - item != "deployments.apps/v1beta1" # Velero will use deployments.apps/v1
+        - item != "tokenreviews.authentication.k8s.io/v1beta1" # Velero will use tokenreviews.authentication.k8s.io/v1
+        - item != "localsubjectaccessreviews.authorization.k8s.io/v1beta1" # Velero will use localsubjectaccessreviews.authorization.k8s.io/v1
+        - item != "selfsubjectaccessreviews.authorization.k8s.io/v1beta1" # Velero will use selfsubjectaccessreviews.authorization.k8s.io/v1
+        - item != "selfsubjectrulesreviews.authorization.k8s.io/v1beta1" # Velero will use selfsubjectrulesreviews.authorization.k8s.io/v1
+        - item != "subjectaccessreviews.authorization.k8s.io/v1beta1" # Velero will use subjectaccessreviews.authorization.k8s.io/v1
+        - item != "clusterrolebindings.rbac.authorization.k8s.io/v1beta1" # Velero will use clusterrolebindings.rbac.authorization.k8s.io/v1
+        - item != "clusterroles.rbac.authorization.k8s.io/v1beta1" # Velero will use clusterroles.rbac.authorization.k8s.io/v1
+        - item != "rolebindings.rbac.authorization.k8s.io/v1beta1" # Velero will use rolebindings.rbac.authorization.k8s.io/v1
+        - item != "roles.rbac.authorization.k8s.io/v1beta1" # Velero will use roles.rbac.authorization.k8s.io/v1
+        - item != "storageclasses.storage.k8s.io/v1beta1" # Velero will use storageclasses.storage.k8s.io/v1
+        - item != "cronjobs.batch/v1beta1" # Compat conversion https://github.com/migtools/mig-controller/pull/1328
+
+    - name: Source Cluster GVKs
+      ansible.builtin.debug:
+        var: src_gvks
+
+    - name: Destination Cluster GVKs
+      ansible.builtin.debug:
+        var: dst_gvks
+
+    - name: Unhandled GVKs
+      ansible.builtin.debug:
+        var: unhandled_gvks
