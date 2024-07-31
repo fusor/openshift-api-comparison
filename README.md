@@ -9,7 +9,23 @@ This is intended as a starting point for locating resources that cannot be migra
 - An OpenShift 3.11 source cluster.
 - An OpenShift 4 destination cluster.
 - Ensure you have ansible, python-kubernetes, and python-openshift and the ansible community kubernetes collection installed.
-  - Fedora users can `sudo dnf -y install ansible python3-kubernetes python3-openshift ansible-collection-community-kubernetes`
+  - Fedora:
+    ```
+    sudo dnf -y install ansible python3-kubernetes python3-openshift ansible-collection-community-kubernetes
+    ```
+  - RHEL 9:
+    ```
+    sudo subscription-manager repos --enable codeready-builder-for-rhel-9-$(arch)-rpms
+    sudo dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm
+    sudo dnf -y install ansible python3-kubernetes python3-openshift
+    ansible-galaxy collection install community.kubernetes
+    ```
+  - RHEL 8:
+    ```
+    sudo dnf -y install python3.12-pip ansible-core
+    pip3.12 install kubernetes openshift
+    ansible-galaxy collection install community.kubernetes
+    ```
 
 N.B. Only OpenShift 3.11 is supported as an OpenShift 3 source cluster for MTC and this playbook makes some assumptions about available GVKs when pruning resources with multiple versions from the final list.
 
