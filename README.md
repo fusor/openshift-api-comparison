@@ -5,9 +5,15 @@ This playbook will provide a list of GVKs on a source OpenShift cluster that are
 
 This is intended as a starting point for locating resources that cannot be migrated when performing an MTC migration.
 
-## Usage
+## Requirements
+- An OpenShift 3.11 source cluster.
+- An OpenShift 4 destination cluster.
 - Ensure you have ansible, python-kubernetes, and python-openshift and the ansible community kubernetes collection installed.
   - Fedora users can `sudo dnf -y install ansible python3-kubernetes python3-openshift ansible-collection-community-kubernetes`
+
+N.B. Only OpenShift 3.11 is supported as an OpenShift 3 source cluster for MTC and this playbook makes some assumptions about available GVKs when pruning resources with multiple versions from the final list.
+
+## Usage
 - `export SRC_KUBECONFIG=/path/to/source/cluster/kubeconfig`
 - `export DST_KUBECONFIG=/path/to/destination/cluster/kubeconfig`
 - `ansible-playbook openshift-gvk-comparison.yml`
@@ -66,3 +72,6 @@ Further other resources may be cluster scoped and not directly migratable. Some 
         "clusterserviceclasses.servicecatalog.k8s.io/v1beta1",
         "clusterserviceplans.servicecatalog.k8s.io/v1beta1",
 ```
+
+## Kubernetes Deprecated API Migration Guide
+The Kubernetes Depricated API Migration Guide](https://kubernetes.io/docs/reference/using-api/deprecation-guide/) can be reviewed to find any additional APIs that might be removed prior to your migration.
